@@ -39,6 +39,8 @@ const (
 	EventCodeNewConsensus      EventCode = "NEWCONSENSUS"
 	EventCodeNewDesc           EventCode = "NEWDESC"
 	EventCodeORConn            EventCode = "ORCONN"
+	EventCodePTLog             EventCode = "PT_LOG"
+	EventCodePTStatus          EventCode = "PT_STATUS"
 	EventCodeSignal            EventCode = "SIGNAL"
 	EventCodeStatusClient      EventCode = "STATUS_CLIENT"
 	EventCodeStatusGeneral     EventCode = "STATUS_GENERAL"
@@ -79,6 +81,8 @@ var recognizedEventCodes = []EventCode{
 	EventCodeNewConsensus,
 	EventCodeNewDesc,
 	EventCodeORConn,
+	EventCodePTLog,
+	EventCodePTStatus,
 	EventCodeSignal,
 	EventCodeStatusClient,
 	EventCodeStatusGeneral,
@@ -380,6 +384,10 @@ func ParseEvent(code EventCode, raw string, dataArray []string) Event {
 		return ParseNewDescEvent(raw)
 	case EventCodeORConn:
 		return ParseORConnEvent(raw)
+	case EventCodePTLog:
+		return ParsePTLogEvent(raw)
+	case EventCodePTStatus:
+		return ParsePTStatusEvent(raw)
 	case EventCodeSignal:
 		return ParseSignalEvent(raw)
 	case EventCodeStatusClient, EventCodeStatusGeneral, EventCodeStatusServer:
@@ -949,6 +957,81 @@ func ParseTransportLaunchedEvent(raw string) *TransportLaunchedEvent {
 
 // Code implements Event.Code
 func (*TransportLaunchedEvent) Code() EventCode { return EventCodeTransportLaunched }
+
+// PTLogEvent is PT_LOG in spec.
+type PTLogEvent struct {
+	Raw string
+	// PT is the pluggable transport program that emitted the log line.
+	PT string
+	// Severity is the log severity (e.g. "debug", "info", "warning", "error").
+	Severity string
+	// Message is the (unescaped) log message.
+	Message string
+}
+
+// ParsePTLogEvent parses the event.
+func ParsePTLogEvent(raw string) *PTLogEvent {
+	event := &PTLogEvent{Raw: raw}
+	rest := raw
+	for rest != "" {
+		var attr string
+		attr, rest, _ = torutil.PartitionString(rest, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
+		switch key {
+		case "PT":
+			event.PT, _ = torutil.UnescapeSimpleQuotedStringIfNeeded(val)
+		case "SEVERITY":
+			event.Severity, _ = torutil.UnescapeSimpleQuotedStringIfNeeded(val)
+		case "MESSAGE":
+			// MESSAGE is a quoted string that may contain spaces and is the last
+			// field, so reattach the remainder before unescaping.
+			if rest != "" {
+				val += " " + rest
+				rest = ""
+			}
+			event.Message, _ = torutil.UnescapeSimpleQuotedStringIfNeeded(val)
+		}
+	}
+	return event
+}
+
+// Code implements Event.Code
+func (*PTLogEvent) Code() EventCode { return EventCodePTLog }
+
+// PTStatusEvent is PT_STATUS in spec.
+type PTStatusEvent struct {
+	Raw string
+	// PT is the pluggable transport program that emitted the status line.
+	PT string
+	// Transport is the name of the transport the status applies to.
+	Transport string
+	// Values holds any remaining transport-specific key/value status pairs.
+	Values map[string]string
+}
+
+// ParsePTStatusEvent parses the event.
+func ParsePTStatusEvent(raw string) *PTStatusEvent {
+	event := &PTStatusEvent{Raw: raw, Values: map[string]string{}}
+	rest := raw
+	for rest != "" {
+		var attr string
+		attr, rest, _ = torutil.PartitionString(rest, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
+		val, _ = torutil.UnescapeSimpleQuotedStringIfNeeded(val)
+		switch key {
+		case "PT":
+			event.PT = val
+		case "TRANSPORT":
+			event.Transport = val
+		default:
+			event.Values[key] = val
+		}
+	}
+	return event
+}
+
+// Code implements Event.Code
+func (*PTStatusEvent) Code() EventCode { return EventCodePTStatus }
 
 // ConnBandwidthEvent is CONN_BW in spec.
 type ConnBandwidthEvent struct {

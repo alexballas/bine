@@ -87,7 +87,19 @@ func (c *Conn) TakeOwnership() error {
 	return c.sendRequestIgnoreResponse("TAKEOWNERSHIP")
 }
 
+// DropOwnership invokes DROPOWNERSHIP, undoing a previous TakeOwnership so the
+// Tor process is no longer tied to this control connection's lifetime.
+func (c *Conn) DropOwnership() error {
+	return c.sendRequestIgnoreResponse("DROPOWNERSHIP")
+}
+
 // DropGuards invokes DROPGUARDS.
 func (c *Conn) DropGuards() error {
 	return c.sendRequestIgnoreResponse("DROPGUARDS")
+}
+
+// DropTimeouts invokes DROPTIMEOUTS, clearing the circuit build timeout history
+// and resetting it to default.
+func (c *Conn) DropTimeouts() error {
+	return c.sendRequestIgnoreResponse("DROPTIMEOUTS")
 }

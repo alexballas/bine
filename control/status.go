@@ -10,6 +10,9 @@ import (
 const (
 	StatusOk            = 250
 	StatusOkUnnecessary = 251
+	// StatusOkOnionClientAuthDecrypted is returned by ONION_CLIENT_AUTH_ADD when
+	// the new credential let Tor decrypt an already-cached service descriptor.
+	StatusOkOnionClientAuthDecrypted = 252
 
 	StatusErrResourceExhausted      = 451
 	StatusErrSyntaxError            = 500

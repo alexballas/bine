@@ -2,10 +2,7 @@ package torutil
 
 import (
 	"crypto"
-	"crypto/rsa"
-	"crypto/sha1"
 	"crypto/sha3"
-	"crypto/x509"
 	"encoding/base32"
 	"fmt"
 	"strings"
@@ -16,12 +13,10 @@ import (
 var serviceIDEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // OnionServiceIDFromPrivateKey generates the onion service ID from the given
-// private key. This panics if the private key is not a 1024-bit
-// crypto/*rsa.PrivateKey or github.com/alexballas/bine/torutil/ed25519.KeyPair.
+// private key. This panics if the private key is not a
+// github.com/alexballas/bine/torutil/ed25519.KeyPair.
 func OnionServiceIDFromPrivateKey(key crypto.PrivateKey) string {
 	switch k := key.(type) {
-	case *rsa.PrivateKey:
-		return OnionServiceIDFromV2PublicKey(&k.PublicKey)
 	case ed25519.KeyPair:
 		return OnionServiceIDFromV3PublicKey(k.PublicKey())
 	}
@@ -29,27 +24,14 @@ func OnionServiceIDFromPrivateKey(key crypto.PrivateKey) string {
 }
 
 // OnionServiceIDFromPublicKey generates the onion service ID from the given
-// public key. This panics if the public key is not a 1024-bit
-// crypto/*rsa.PublicKey or github.com/alexballas/bine/torutil/ed25519.PublicKey.
+// public key. This panics if the public key is not a
+// github.com/alexballas/bine/torutil/ed25519.PublicKey.
 func OnionServiceIDFromPublicKey(key crypto.PublicKey) string {
 	switch k := key.(type) {
-	case *rsa.PublicKey:
-		return OnionServiceIDFromV2PublicKey(k)
 	case ed25519.PublicKey:
 		return OnionServiceIDFromV3PublicKey(k)
 	}
 	panic(fmt.Sprintf("Unrecognized public key type: %T", key))
-}
-
-// OnionServiceIDFromV2PublicKey generates a V2 service ID for the given
-// RSA-1024 public key. Panics if not a 1024-bit key.
-func OnionServiceIDFromV2PublicKey(key *rsa.PublicKey) string {
-	if key.N.BitLen() != 1024 {
-		panic("RSA key not 1024 bit")
-	}
-	h := sha1.New()
-	h.Write(x509.MarshalPKCS1PublicKey(key))
-	return strings.ToLower(serviceIDEncoding.EncodeToString(h.Sum(nil)[:10]))
 }
 
 // OnionServiceIDFromV3PublicKey generates a V3 service ID for the given

@@ -1,8 +1,6 @@
 package control
 
 import (
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"strconv"
@@ -18,8 +16,6 @@ type KeyType string
 const (
 	// KeyTypeNew is NEW.
 	KeyTypeNew KeyType = "NEW"
-	// KeyTypeRSA1024 is RSA1024.
-	KeyTypeRSA1024 KeyType = "RSA1024"
 	// KeyTypeED25519V3 is ED25519-V3.
 	KeyTypeED25519V3 KeyType = "ED25519-V3"
 )
@@ -30,14 +26,12 @@ type KeyAlgo string
 const (
 	// KeyAlgoBest is BEST.
 	KeyAlgoBest KeyAlgo = "BEST"
-	// KeyAlgoRSA1024 is RSA1024.
-	KeyAlgoRSA1024 KeyAlgo = "RSA1024"
 	// KeyAlgoED25519V3 is ED25519-V3.
 	KeyAlgoED25519V3 KeyAlgo = "ED25519-V3"
 )
 
-// Key is a type of key to use for AddOnion. Implementations include GenKey,
-// RSAKey, and ED25519Key.
+// Key is a type of key to use for AddOnion. Implementations include GenKey and
+// ED25519Key.
 type Key interface {
 	// Type is the KeyType for AddOnion.
 	Type() KeyType
@@ -51,8 +45,6 @@ func KeyFromString(str string) (Key, error) {
 	switch KeyType(typ) {
 	case KeyTypeNew:
 		return GenKeyFromBlob(blob), nil
-	case KeyTypeRSA1024:
-		return RSA1024KeyFromBlob(blob)
 	case KeyTypeED25519V3:
 		return ED25519KeyFromBlob(blob)
 	default:
@@ -73,30 +65,6 @@ func (GenKey) Type() KeyType { return KeyTypeNew }
 
 // Blob implements Key.Blob.
 func (g GenKey) Blob() string { return string(g) }
-
-// RSAKey is a Key for AddOnion that is a RSA-1024 key (i.e. v2).
-type RSAKey struct{ *rsa.PrivateKey }
-
-// RSA1024KeyFromBlob creates a RSAKey for the given response blob.
-func RSA1024KeyFromBlob(blob string) (*RSAKey, error) {
-	byts, err := base64.StdEncoding.DecodeString(blob)
-	if err != nil {
-		return nil, err
-	}
-	rsaKey, err := x509.ParsePKCS1PrivateKey(byts)
-	if err != nil {
-		return nil, err
-	}
-	return &RSAKey{rsaKey}, nil
-}
-
-// Type implements Key.Type.
-func (*RSAKey) Type() KeyType { return KeyTypeRSA1024 }
-
-// Blob implements Key.Blob.
-func (r *RSAKey) Blob() string {
-	return base64.StdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(r.PrivateKey))
-}
 
 // ED25519Key is a Key for AddOnion that is a ed25519 key (i.e. v3).
 type ED25519Key struct{ ed25519.KeyPair }
