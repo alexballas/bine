@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/cretz/bine/torutil/ed25519"
+	"github.com/alexballas/bine/torutil/ed25519"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +23,15 @@ func genEd25519(t *testing.T) ed25519.KeyPair {
 	return k
 }
 
+// genSmallRSA builds an RSA key with an undersized (non-1024-bit) modulus.
+// crypto/rsa refuses to generate keys smaller than 1024 bits (Go 1.24+), so we
+// construct one directly to exercise the "wrong key size" rejection path.
+func genSmallRSA() *rsa.PrivateKey {
+	return &rsa.PrivateKey{PublicKey: rsa.PublicKey{N: new(big.Int).Lsh(big.NewInt(1), 511), E: 65537}}
+}
+
 func TestOnionServiceIDFromPrivateKey(t *testing.T) {
-	assert := func(key interface{}, shouldPanic bool) {
+	assert := func(key any, shouldPanic bool) {
 		if shouldPanic {
 			require.Panics(t, func() { OnionServiceIDFromPrivateKey(key) })
 		} else {
@@ -33,13 +40,13 @@ func TestOnionServiceIDFromPrivateKey(t *testing.T) {
 	}
 	assert(nil, true)
 	assert("bad type", true)
-	assert(genRsa(t, 512), true)
+	assert(genSmallRSA(), true)
 	assert(genRsa(t, 1024), false)
 	assert(genEd25519(t), false)
 }
 
 func TestOnionServiceIDFromPublicKey(t *testing.T) {
-	assert := func(key interface{}, shouldPanic bool) {
+	assert := func(key any, shouldPanic bool) {
 		if shouldPanic {
 			require.Panics(t, func() { OnionServiceIDFromPublicKey(key) })
 		} else {
@@ -48,7 +55,7 @@ func TestOnionServiceIDFromPublicKey(t *testing.T) {
 	}
 	assert(nil, true)
 	assert("bad type", true)
-	assert(genRsa(t, 512).Public(), true)
+	assert(genSmallRSA().Public(), true)
 	assert(genRsa(t, 1024), true)
 	assert(genRsa(t, 1024).Public(), false)
 	assert(genEd25519(t), true)

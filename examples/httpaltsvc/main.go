@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cretz/bine/tor"
-	"github.com/cretz/bine/torutil"
+	"github.com/alexballas/bine/tor"
+	"github.com/alexballas/bine/torutil"
 )
 
 var verbose bool
@@ -208,7 +208,7 @@ func getExitAddresses() (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
 		return nil, err

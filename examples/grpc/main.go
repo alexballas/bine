@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cretz/bine/examples/grpc/pb"
-	"github.com/cretz/bine/tor"
+	"github.com/alexballas/bine/examples/grpc/pb"
+	"github.com/alexballas/bine/tor"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -145,23 +146,17 @@ func startServer(ctx context.Context, t *tor.Tor) (server *grpc.Server, onionID 
 func startClient(
 	ctx context.Context, t *tor.Tor, addr string,
 ) (conn *grpc.ClientConn, client pb.SimpleServiceClient, err error) {
-	// Wait at most a few minutes to connect to the service
-	connCtx, connCancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer connCancel()
 	// Make the dialer
-	dialer, err := t.Dialer(connCtx, nil)
+	dialer, err := t.Dialer(ctx, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	// Make the connection
-	conn, err = grpc.DialContext(connCtx, addr,
-		grpc.FailOnNonTempDialError(true),
-		grpc.WithBlock(),
-		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			dialCtx, dialCancel := context.WithTimeout(ctx, timeout)
-			defer dialCancel()
-			return dialer.DialContext(dialCtx, "tcp", addr)
+	// Make the connection. The passthrough scheme hands the address straight to
+	// our Tor dialer instead of routing it through gRPC's DNS resolver.
+	conn, err = grpc.NewClient("passthrough:///"+addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "tcp", addr)
 		}),
 	)
 	if err == nil {
@@ -170,7 +165,9 @@ func startClient(
 	return
 }
 
-type simpleService struct{}
+type simpleService struct {
+	pb.UnimplementedSimpleServiceServer
+}
 
 func (simpleService) JoinStrings(ctx context.Context, req *pb.JoinStringsRequest) (*pb.JoinStringsResponse, error) {
 	return &pb.JoinStringsResponse{Joined: strings.Join(req.Strings, req.Delimiter)}, nil

@@ -16,7 +16,7 @@ func (c *Conn) ExtendCircuit(circuitID string, path []string, purpose string) (s
 	if purpose != "" {
 		cmd += " purpose=" + purpose
 	}
-	resp, err := c.SendRequest(cmd)
+	resp, err := c.SendRequest("%s", cmd)
 	if err != nil {
 		return "", err
 	}
@@ -30,9 +30,10 @@ func (c *Conn) SetCircuitPurpose(circuitID string, purpose string) error {
 
 // CloseCircuit invokes CLOSECIRCUIT.
 func (c *Conn) CloseCircuit(circuitID string, flags []string) error {
-	cmd := "CLOSECIRCUIT " + circuitID
+	var cmd strings.Builder
+	cmd.WriteString("CLOSECIRCUIT " + circuitID)
 	for _, flag := range flags {
-		cmd += " " + flag
+		cmd.WriteString(" " + flag)
 	}
-	return c.sendRequestIgnoreResponse(cmd)
+	return c.sendRequestIgnoreResponse("%s", cmd.String())
 }

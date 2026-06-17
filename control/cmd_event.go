@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cretz/bine/torutil"
+	"github.com/alexballas/bine/torutil"
 )
 
 // EventCode represents an asynchronous event code (ref control spec 4.1).
@@ -258,12 +258,13 @@ func (c *Conn) removeEventListenerFromMap(ch chan<- Event, events ...EventCode) 
 
 func (c *Conn) sendSetEvents() error {
 	c.eventListenersLock.RLock()
-	cmd := "SETEVENTS"
+	var cmd strings.Builder
+	cmd.WriteString("SETEVENTS")
 	for event := range c.eventListeners {
-		cmd += " " + string(event)
+		cmd.WriteString(" " + string(event))
 	}
 	c.eventListenersLock.RUnlock()
-	return c.sendRequestIgnoreResponse(cmd)
+	return c.sendRequestIgnoreResponse("%s", cmd.String())
 }
 
 func (c *Conn) relayAsyncEvents(resp *Response) {
@@ -751,7 +752,7 @@ func ParseClientsSeenEvent(raw string) *ClientsSeenEvent {
 	event.TimeStarted = parseISOTime(temp)
 	strToMap := func(str string) map[string]int {
 		ret := map[string]int{}
-		for _, keyVal := range strings.Split(str, ",") {
+		for keyVal := range strings.SplitSeq(str, ",") {
 			key, val, _ := torutil.PartitionString(keyVal, '=')
 			ret[key], _ = strconv.Atoi(val)
 		}
@@ -1040,7 +1041,7 @@ func ParseCellStatsEvent(raw string) *CellStatsEvent {
 	var attr string
 	toIntMap := func(val string) map[string]int {
 		ret := map[string]int{}
-		for _, v := range strings.Split(val, ",") {
+		for v := range strings.SplitSeq(val, ",") {
 			key, val, _ := torutil.PartitionString(v, ':')
 			ret[key], _ = strconv.Atoi(val)
 		}
@@ -1179,9 +1180,9 @@ func ParseHSDescContentEvent(raw string) *HSDescContentEvent {
 	event := &HSDescContentEvent{Raw: raw}
 	event.Address, raw, _ = torutil.PartitionString(raw, ' ')
 	event.DescID, raw, _ = torutil.PartitionString(raw, ' ')
-	newlineIndex := strings.Index(raw, "\r\n")
-	if newlineIndex != -1 {
-		event.HSDir, event.Descriptor = raw[:newlineIndex], raw[newlineIndex+2:]
+	before, after, ok := strings.Cut(raw, "\r\n")
+	if ok {
+		event.HSDir, event.Descriptor = before, after
 	}
 	return event
 }

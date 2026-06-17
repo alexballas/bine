@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/cretz/bine/control"
-	"github.com/cretz/bine/torutil/ed25519"
-	othered25519 "golang.org/x/crypto/ed25519"
+	othered25519 "crypto/ed25519"
+	"github.com/alexballas/bine/control"
+	"github.com/alexballas/bine/torutil/ed25519"
 )
 
 // OnionForward describes a port forward to an onion service.
@@ -18,7 +18,7 @@ type OnionForward struct {
 
 	// Key is the private key for this service. It is either the set key, the
 	// generated key, or nil if asked to discard the key. If present, it is an
-	// instance of github.com/cretz/bine/torutil/ed25519.KeyPair.
+	// instance of github.com/alexballas/bine/torutil/ed25519.KeyPair.
 	Key crypto.PrivateKey
 
 	// PortForwards defines the ports that will be forwarded to the onion
@@ -37,9 +37,9 @@ type ForwardConf struct {
 
 	// Key is the private key to use. If not present, a key is generated. If
 	// present, it must be an instance of
-	// github.com/cretz/bine/torutil/ed25519.KeyPair, a
-	// golang.org/x/crypto/ed25519.PrivateKey, or a
-	// github.com/cretz/bine/control.Key.
+	// github.com/alexballas/bine/torutil/ed25519.KeyPair, a
+	// crypto/ed25519.PrivateKey, or a
+	// github.com/alexballas/bine/control.Key.
 	Key crypto.PrivateKey
 
 	// ClientAuths is the credential set for clients. The values are
@@ -112,11 +112,11 @@ func (t *Tor) Forward(ctx context.Context, conf *ForwardConf) (*OnionForward, er
 		req.Key = key
 	case ed25519.KeyPair:
 		fwd.Key = key
-		req.Key = &control.ED25519Key{key}
+		req.Key = &control.ED25519Key{KeyPair: key}
 	case othered25519.PrivateKey:
 		properKey := ed25519.FromCryptoPrivateKey(key)
 		fwd.Key = properKey
-		req.Key = &control.ED25519Key{properKey}
+		req.Key = &control.ED25519Key{KeyPair: properKey}
 	case *control.ED25519Key:
 		fwd.Key = key.KeyPair
 		req.Key = key

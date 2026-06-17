@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -31,7 +31,7 @@ func (c *Conn) Authenticate(password string) error {
 		if pi.CookieFile == "" {
 			return c.protoErr("Invalid (empty) COOKIEFILE")
 		}
-		cookie, err := ioutil.ReadFile(pi.CookieFile)
+		cookie, err := os.ReadFile(pi.CookieFile)
 		if err != nil {
 			return c.protoErr("Failed to read COOKIEFILE: %v", err)
 		} else if len(cookie) != 32 {

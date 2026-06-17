@@ -43,7 +43,7 @@ func NewConn(conn *textproto.Conn) *Conn {
 	}
 }
 
-func (c *Conn) sendRequestIgnoreResponse(format string, args ...interface{}) error {
+func (c *Conn) sendRequestIgnoreResponse(format string, args ...any) error {
 	_, err := c.SendRequest(format, args...)
 	return err
 }
@@ -52,7 +52,7 @@ func (c *Conn) sendRequestIgnoreResponse(format string, args ...interface{}) err
 // the response errors, the error result will be set, but the response will be
 // set also. This is usually not directly used by callers, but instead called by
 // higher-level methods.
-func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error) {
+func (c *Conn) SendRequest(format string, args ...any) (*Response, error) {
 	if c.debugEnabled() {
 		c.debugf("Write line: %v", fmt.Sprintf(format, args...))
 	}
@@ -91,12 +91,12 @@ func (c *Conn) debugEnabled() bool {
 	return c.DebugWriter != nil
 }
 
-func (c *Conn) debugf(format string, args ...interface{}) {
+func (c *Conn) debugf(format string, args ...any) {
 	if w := c.DebugWriter; w != nil {
 		fmt.Fprintf(w, format+"\n", args...)
 	}
 }
 
-func (*Conn) protoErr(format string, args ...interface{}) textproto.ProtocolError {
+func (*Conn) protoErr(format string, args ...any) textproto.ProtocolError {
 	return textproto.ProtocolError(fmt.Sprintf(format, args...))
 }

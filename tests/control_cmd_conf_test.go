@@ -1,10 +1,10 @@
 package tests
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 
-	"github.com/cretz/bine/control"
+	"github.com/alexballas/bine/control"
 )
 
 func TestGetSetAndResetConf(t *testing.T) {
@@ -65,7 +65,7 @@ func TestSaveConf(t *testing.T) {
 	// Save it
 	ctx.Require.NoError(ctx.Control.SaveConf(false))
 	// Read and make sure, say, the DataDirectory is accurate
-	confText, err := ioutil.ReadFile(confFile)
+	confText, err := os.ReadFile(confFile)
 	ctx.Require.NoError(err)
 	ctx.Require.Contains(string(confText), "DataDirectory "+ctx.DataDir)
 }

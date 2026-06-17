@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/textproto"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
-	"github.com/cretz/bine/control"
+	"github.com/alexballas/bine/control"
 
-	"github.com/cretz/bine/process"
+	"github.com/alexballas/bine/process"
 )
 
 // Tor is the wrapper around the Tor process and control port connection. It
@@ -156,7 +155,7 @@ func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 		if tempBase, err = filepath.Abs(tempBase); err != nil {
 			return nil, err
 		}
-		if tor.DataDir, err = ioutil.TempDir(tempBase, "data-dir-"); err != nil {
+		if tor.DataDir, err = os.MkdirTemp(tempBase, "data-dir-"); err != nil {
 			return nil, fmt.Errorf("Unable to create temp data dir: %v", err)
 		}
 		tor.Debugf("Created temp data directory at: %v", tor.DataDir)
@@ -260,7 +259,7 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 	// If there is no Torrc file, create a blank temp one
 	torrcFileName := conf.TorrcFile
 	if torrcFileName == "" {
-		torrcFile, err := ioutil.TempFile(t.DataDir, "torrc-")
+		torrcFile, err := os.CreateTemp(t.DataDir, "torrc-")
 		if err != nil {
 			return err
 		}
@@ -275,7 +274,7 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 	var err error
 	if !conf.UseEmbeddedControlConn {
 		if conf.ControlPort == 0 {
-			controlPortFile, err := ioutil.TempFile(t.DataDir, "control-port-")
+			controlPortFile, err := os.CreateTemp(t.DataDir, "control-port-")
 			if err != nil {
 				return err
 			}
@@ -317,7 +316,7 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 		t.ControlPort = conf.ControlPort
 		if t.ControlPort == 0 {
 		ControlPortCheck:
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				select {
 				case <-ctx.Done():
 					err = ctx.Err()
@@ -325,7 +324,7 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 				default:
 					// Try to read the controlport file, or wait a bit
 					var byts []byte
-					if byts, err = ioutil.ReadFile(controlPortFileName); err != nil {
+					if byts, err = os.ReadFile(controlPortFileName); err != nil {
 						break ControlPortCheck
 					} else if t.ControlPort, err = process.ControlPortFromFileContents(string(byts)); err == nil {
 						break ControlPortCheck

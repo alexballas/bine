@@ -3,11 +3,13 @@
 The following examples are in this directory:
 
 * [simpleclient](simpleclient) - A simple Tor client for connecting to the web or other onion services
-* [simpleserver](simpleserver) - Hosting simple "hello world" Tor onion service 
-* [embeddedversion](embeddedversion) - Example showing how to dump the version of Tor embedded in the binary
-* [embeddedfileserver](embeddedfileserver) - Example showing a file server using Tor embedded in the binary
+* [simpleserver](simpleserver) - Hosting simple "hello world" Tor onion service
 * [grpc](grpc) - Example showing how to use gRPC over Tor
 * [httpaltsvc](httpaltsvc) - Example showing how to use .onion address as `Alt-Svc` of regular website (in development)
+
+For embedding a statically-linked Tor directly in your binary, use
+[go-libtor](https://github.com/alexballas/go-libtor) as the `ProcessCreator` —
+see its README for a runnable example.
 
 To run an example, while in this directory run the following with `<example>` replaced with the desired example:
 

@@ -1,12 +1,18 @@
-module github.com/cretz/bine/examples
+module github.com/alexballas/bine/examples
 
-go 1.15
+go 1.25.0
 
 require (
-	github.com/cretz/bine v0.2.0
-	github.com/golang/protobuf v1.5.2
-	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
-	google.golang.org/grpc v1.38.0
+	github.com/alexballas/bine v0.0.0-00010101000000-000000000000
+	golang.org/x/net v0.56.0
+	google.golang.org/grpc v1.81.1
+	google.golang.org/protobuf v1.36.11
 )
 
-replace github.com/cretz/bine => ../
+require (
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260615183401-62b3387ff324 // indirect
+)
+
+replace github.com/alexballas/bine => ../

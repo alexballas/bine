@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cretz/bine/tor"
+	"github.com/alexballas/bine/tor"
 	"golang.org/x/net/html"
 )
 

@@ -76,37 +76,37 @@ func UnescapeSimpleQuotedString(str string) (string, error) {
 // UnescapeSimpleQuotedStringContents unescapes backslashes, double quotes,
 // newlines, and carriage returns. Also errors if those aren't escaped.
 func UnescapeSimpleQuotedStringContents(str string) (string, error) {
-	ret := ""
+	var ret strings.Builder
 	escaping := false
 	for _, c := range str {
 		switch c {
 		case '\\':
 			if escaping {
-				ret += "\\"
+				ret.WriteString("\\")
 			}
 			escaping = !escaping
 		case '"':
 			if !escaping {
 				return "", fmt.Errorf("Unescaped quote")
 			}
-			ret += "\""
+			ret.WriteString("\"")
 			escaping = false
 		case '\r', '\n':
 			return "", fmt.Errorf("Unescaped newline or carriage return")
 		default:
 			if escaping {
 				if c == 'r' {
-					ret += "\r"
+					ret.WriteString("\r")
 				} else if c == 'n' {
-					ret += "\n"
+					ret.WriteString("\n")
 				} else {
 					return "", fmt.Errorf("Unexpected escape")
 				}
 			} else {
-				ret += string(c)
+				ret.WriteString(string(c))
 			}
 			escaping = false
 		}
 	}
-	return ret, nil
+	return ret.String(), nil
 }

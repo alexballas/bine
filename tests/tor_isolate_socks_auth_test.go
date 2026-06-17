@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cretz/bine/tor"
+	"github.com/alexballas/bine/tor"
 	"golang.org/x/net/proxy"
 )
 
@@ -38,14 +38,14 @@ func doSeparateAuthHttpCalls(ctx *TestContext) map[int]struct{} {
 	defer enableCancel()
 	ctx.Require.NoError(ctx.EnableNetwork(enableCtx, true))
 	// Make HTTP call w/ an auth
-	client := httpClient(ctx, &tor.DialConf{ProxyAuth: &proxy.Auth{"foo", "bar"}})
+	client := httpClient(ctx, &tor.DialConf{ProxyAuth: &proxy.Auth{User: "foo", Password: "bar"}})
 	byts := httpGet(ctx, client, "https://check.torproject.org/api/ip")
 	ctx.Debugf("Read bytes: %v", string(byts))
 	// Confirm just size 1
 	ids := uniqueStreamCircuitIDs(ctx)
 	ctx.Require.Len(ids, 1)
 	// Now make call with another auth and just return circuit IDs
-	client = httpClient(ctx, &tor.DialConf{ProxyAuth: &proxy.Auth{"baz", "qux"}})
+	client = httpClient(ctx, &tor.DialConf{ProxyAuth: &proxy.Auth{User: "baz", Password: "qux"}})
 	byts = httpGet(ctx, client, "https://check.torproject.org/api/ip")
 	ctx.Debugf("Read bytes: %v", string(byts))
 	return uniqueStreamCircuitIDs(ctx)
@@ -58,7 +58,7 @@ func uniqueStreamCircuitIDs(ctx *TestContext) map[int]struct{} {
 	ctx.Require.NoError(err)
 	for _, val := range vals {
 		ctx.Require.Equal("stream-status", val.Key)
-		for _, line := range strings.Split(val.Val, "\n") {
+		for line := range strings.SplitSeq(val.Val, "\n") {
 			pieces := strings.Split(strings.TrimSpace(line), " ")
 			if len(pieces) < 3 {
 				continue

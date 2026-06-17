@@ -28,7 +28,7 @@ func KeyVals(keysAndVals ...string) []*KeyVal {
 		panic("Expected multiple of 2")
 	}
 	ret := make([]*KeyVal, len(keysAndVals)/2)
-	for i := 0; i < len(ret); i++ {
+	for i := range ret {
 		ret[i] = NewKeyVal(keysAndVals[i*2], keysAndVals[i*2+1])
 	}
 	return ret

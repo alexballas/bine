@@ -3,8 +3,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/cretz/bine/tor"
-	"github.com/cretz/bine/torutil/geoipembed"
+	"github.com/alexballas/bine/tor"
+	"github.com/alexballas/bine/torutil/geoipembed"
 )
 
 func TestEmbeddedGeoIPFile(t *testing.T) {

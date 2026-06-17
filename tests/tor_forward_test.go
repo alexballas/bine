@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cretz/bine/tor"
-	"github.com/cretz/bine/torutil"
+	"github.com/alexballas/bine/tor"
+	"github.com/alexballas/bine/torutil"
 )
 
 func testHandler(w http.ResponseWriter, r *http.Request) {

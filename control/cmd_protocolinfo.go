@@ -1,9 +1,10 @@
 package control
 
 import (
+	"slices"
 	"strings"
 
-	"github.com/cretz/bine/torutil"
+	"github.com/alexballas/bine/torutil"
 )
 
 // ProtocolInfo is the protocol info result of Conn.ProtocolInfo.
@@ -16,12 +17,7 @@ type ProtocolInfo struct {
 
 // HasAuthMethod checks if ProtocolInfo contains the requested auth method.
 func (p *ProtocolInfo) HasAuthMethod(authMethod string) bool {
-	for _, m := range p.AuthMethods {
-		if m == authMethod {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(p.AuthMethods, authMethod)
 }
 
 // ProtocolInfo invokes PROTOCOLINFO on first invocation and returns a cached

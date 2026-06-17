@@ -3,7 +3,7 @@ package control
 import (
 	"strings"
 
-	"github.com/cretz/bine/torutil"
+	"github.com/alexballas/bine/torutil"
 )
 
 // Signal invokes SIGNAL.
@@ -18,11 +18,12 @@ func (c *Conn) Quit() error {
 
 // MapAddresses invokes MAPADDRESS and returns mapped addresses.
 func (c *Conn) MapAddresses(addresses ...*KeyVal) ([]*KeyVal, error) {
-	cmd := "MAPADDRESS"
+	var cmd strings.Builder
+	cmd.WriteString("MAPADDRESS")
 	for _, address := range addresses {
-		cmd += " " + address.Key + "=" + address.Val
+		cmd.WriteString(" " + address.Key + "=" + address.Val)
 	}
-	resp, err := c.SendRequest(cmd)
+	resp, err := c.SendRequest("%s", cmd.String())
 	if err != nil {
 		return nil, err
 	}
@@ -64,12 +65,12 @@ func (c *Conn) PostDescriptor(descriptor string, purpose string, cache string) e
 		cmd += " cache=" + cache
 	}
 	cmd += "\r\n" + descriptor + "\r\n."
-	return c.sendRequestIgnoreResponse(cmd)
+	return c.sendRequestIgnoreResponse("%s", cmd)
 }
 
 // UseFeatures invokes USEFEATURE.
 func (c *Conn) UseFeatures(features ...string) error {
-	return c.sendRequestIgnoreResponse("USEFEATURE " + strings.Join(features, " "))
+	return c.sendRequestIgnoreResponse("%s", "USEFEATURE "+strings.Join(features, " "))
 }
 
 // ResolveAsync invokes RESOLVE.
@@ -78,7 +79,7 @@ func (c *Conn) ResolveAsync(address string, reverse bool) error {
 	if reverse {
 		cmd += "mode=reverse "
 	}
-	return c.sendRequestIgnoreResponse(cmd + address)
+	return c.sendRequestIgnoreResponse("%s", cmd+address)
 }
 
 // TakeOwnership invokes TAKEOWNERSHIP.

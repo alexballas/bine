@@ -1,8 +1,9 @@
 // Package ed25519 implements Tor/BitTorrent-like ed25519 keys.
 //
 // See the following stack overflow post for details on why
-// golang.org/x/crypto/ed25519 can't be used:
-//  https://stackoverflow.com/questions/44810708/ed25519-public-result-is-different
+// crypto/ed25519 can't be used:
+//
+//	https://stackoverflow.com/questions/44810708/ed25519-public-result-is-different
 package ed25519
 
 import (
@@ -12,8 +13,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/cretz/bine/torutil/ed25519/internal/edwards25519"
-	"golang.org/x/crypto/ed25519"
+	"crypto/ed25519"
+	"github.com/alexballas/bine/torutil/ed25519/internal/edwards25519"
 )
 
 const (
@@ -26,7 +27,7 @@ const (
 )
 
 // PrivateKey is a 64-byte Ed25519 private key. Unlike
-// golang.org/x/crypto/ed25519, this is just the digest and does not contain
+// crypto/ed25519, this is just the digest and does not contain
 // the public key within it. Instead call PublicKey() or better, call KeyPair()
 // which stores the precomputed public key.
 type PrivateKey []byte

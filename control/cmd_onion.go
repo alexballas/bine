@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cretz/bine/torutil"
-	"github.com/cretz/bine/torutil/ed25519"
+	"github.com/alexballas/bine/torutil"
+	"github.com/alexballas/bine/torutil/ed25519"
 )
 
 // KeyType is a key type for Key in AddOnion.
@@ -107,7 +107,7 @@ func ED25519KeyFromBlob(blob string) (*ED25519Key, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ED25519Key{ed25519.PrivateKey(byts).KeyPair()}, nil
+	return &ED25519Key{KeyPair: ed25519.PrivateKey(byts).KeyPair()}, nil
 }
 
 // Type implements Key.Type.
@@ -147,24 +147,25 @@ func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 	if req.Key == nil {
 		return nil, c.protoErr("Key required")
 	}
-	cmd := "ADD_ONION " + string(req.Key.Type()) + ":" + req.Key.Blob()
+	var cmd strings.Builder
+	cmd.WriteString("ADD_ONION " + string(req.Key.Type()) + ":" + req.Key.Blob())
 	if len(req.Flags) > 0 {
-		cmd += " Flags=" + strings.Join(req.Flags, ",")
+		cmd.WriteString(" Flags=" + strings.Join(req.Flags, ","))
 	}
 	if req.MaxStreams > 0 {
-		cmd += " MaxStreams=" + strconv.Itoa(req.MaxStreams)
+		cmd.WriteString(" MaxStreams=" + strconv.Itoa(req.MaxStreams))
 	}
 	for _, port := range req.Ports {
-		cmd += " Port=" + port.Key
+		cmd.WriteString(" Port=" + port.Key)
 		if port.Val != "" {
-			cmd += "," + port.Val
+			cmd.WriteString("," + port.Val)
 		}
 	}
 	for _, blob := range req.ClientAuths {
-		cmd += " ClientAuthV3=" + blob
+		cmd.WriteString(" ClientAuthV3=" + blob)
 	}
 	// Invoke and read response
-	resp, err := c.SendRequest(cmd)
+	resp, err := c.SendRequest("%s", cmd.String())
 	if err != nil {
 		return nil, err
 	}
