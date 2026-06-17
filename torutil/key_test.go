@@ -1,25 +1,38 @@
 package torutil
 
 import (
+	"bytes"
 	"encoding/base64"
 	"testing"
 
 	"github.com/alexballas/bine/torutil/ed25519"
-	"github.com/stretchr/testify/require"
 )
 
 func genEd25519(t *testing.T) ed25519.KeyPair {
-	k, e := ed25519.GenerateKey(nil)
-	require.NoError(t, e)
+	t.Helper()
+	k, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return k
+}
+
+// didPanic reports whether calling f resulted in a panic.
+func didPanic(f func()) (panicked bool) {
+	defer func() {
+		if recover() != nil {
+			panicked = true
+		}
+	}()
+	f()
+	return
 }
 
 func TestOnionServiceIDFromPrivateKey(t *testing.T) {
 	assert := func(key any, shouldPanic bool) {
-		if shouldPanic {
-			require.Panics(t, func() { OnionServiceIDFromPrivateKey(key) })
-		} else {
-			require.NotPanics(t, func() { OnionServiceIDFromPrivateKey(key) })
+		t.Helper()
+		if got := didPanic(func() { OnionServiceIDFromPrivateKey(key) }); got != shouldPanic {
+			t.Errorf("OnionServiceIDFromPrivateKey(%T): panicked=%v, want %v", key, got, shouldPanic)
 		}
 	}
 	assert(nil, true)
@@ -29,10 +42,9 @@ func TestOnionServiceIDFromPrivateKey(t *testing.T) {
 
 func TestOnionServiceIDFromPublicKey(t *testing.T) {
 	assert := func(key any, shouldPanic bool) {
-		if shouldPanic {
-			require.Panics(t, func() { OnionServiceIDFromPublicKey(key) })
-		} else {
-			require.NotPanics(t, func() { OnionServiceIDFromPublicKey(key) })
+		t.Helper()
+		if got := didPanic(func() { OnionServiceIDFromPublicKey(key) }); got != shouldPanic {
+			t.Errorf("OnionServiceIDFromPublicKey(%T): panicked=%v, want %v", key, got, shouldPanic)
 		}
 	}
 	assert(nil, true)
@@ -58,24 +70,35 @@ func TestOnionServiceIDFromV3PublicKey(t *testing.T) {
 	}
 	for i, base64Key := range base64Keys {
 		key, err := base64.RawStdEncoding.DecodeString(base64Key)
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("decode key %d: %v", i, err)
+		}
 		pubKey := ed25519.PrivateKey(key).PublicKey()
 		matchingID := matchingIDs[i]
-		require.Equal(t, matchingID, OnionServiceIDFromV3PublicKey(pubKey))
+		if got := OnionServiceIDFromV3PublicKey(pubKey); got != matchingID {
+			t.Errorf("OnionServiceIDFromV3PublicKey = %q, want %q", got, matchingID)
+		}
 		// Check verify here too
 		derivedPubKey, err := PublicKeyFromV3OnionServiceID(matchingID)
-		require.NoError(t, err)
-		require.Equal(t, pubKey, derivedPubKey)
+		if err != nil {
+			t.Fatalf("PublicKeyFromV3OnionServiceID(%q): %v", matchingID, err)
+		}
+		if !bytes.Equal(pubKey, derivedPubKey) {
+			t.Errorf("derived public key does not match original for id %q", matchingID)
+		}
 		// Let's mangle the matchingID a bit
 		tooLong := matchingID + "ddddd"
-		_, err = PublicKeyFromV3OnionServiceID(tooLong)
-		require.EqualError(t, err, "Invalid id length")
+		if _, err = PublicKeyFromV3OnionServiceID(tooLong); err == nil || err.Error() != "Invalid id length" {
+			t.Errorf("PublicKeyFromV3OnionServiceID(%q) error = %v, want \"Invalid id length\"", tooLong, err)
+		}
 		badVersion := matchingID[:len(matchingID)-1] + "e"
-		_, err = PublicKeyFromV3OnionServiceID(badVersion)
-		require.EqualError(t, err, "Invalid version")
+		if _, err = PublicKeyFromV3OnionServiceID(badVersion); err == nil || err.Error() != "Invalid version" {
+			t.Errorf("PublicKeyFromV3OnionServiceID(%q) error = %v, want \"Invalid version\"", badVersion, err)
+		}
 		badChecksum := []byte(matchingID)
 		badChecksum[len(badChecksum)-3] = 'q'
-		_, err = PublicKeyFromV3OnionServiceID(string(badChecksum))
-		require.EqualError(t, err, "Invalid checksum")
+		if _, err = PublicKeyFromV3OnionServiceID(string(badChecksum)); err == nil || err.Error() != "Invalid checksum" {
+			t.Errorf("PublicKeyFromV3OnionServiceID(%q) error = %v, want \"Invalid checksum\"", string(badChecksum), err)
+		}
 	}
 }

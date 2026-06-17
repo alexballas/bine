@@ -2,16 +2,16 @@ package torutil
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestPartitionString(t *testing.T) {
 	assert := func(str string, ch byte, expectedA string, expectedB string, expectedOk bool) {
+		t.Helper()
 		a, b, ok := PartitionString(str, ch)
-		require.Equal(t, expectedA, a)
-		require.Equal(t, expectedB, b)
-		require.Equal(t, expectedOk, ok)
+		if a != expectedA || b != expectedB || ok != expectedOk {
+			t.Errorf("PartitionString(%q, %q) = (%q, %q, %v), want (%q, %q, %v)",
+				str, ch, a, b, ok, expectedA, expectedB, expectedOk)
+		}
 	}
 	assert("foo:bar", ':', "foo", "bar", true)
 	assert(":bar", ':', "", "bar", true)
@@ -22,10 +22,12 @@ func TestPartitionString(t *testing.T) {
 
 func TestPartitionStringFromEnd(t *testing.T) {
 	assert := func(str string, ch byte, expectedA string, expectedB string, expectedOk bool) {
+		t.Helper()
 		a, b, ok := PartitionStringFromEnd(str, ch)
-		require.Equal(t, expectedA, a)
-		require.Equal(t, expectedB, b)
-		require.Equal(t, expectedOk, ok)
+		if a != expectedA || b != expectedB || ok != expectedOk {
+			t.Errorf("PartitionStringFromEnd(%q, %q) = (%q, %q, %v), want (%q, %q, %v)",
+				str, ch, a, b, ok, expectedA, expectedB, expectedOk)
+		}
 	}
 	assert("foo:bar", ':', "foo", "bar", true)
 	assert(":bar", ':', "", "bar", true)
@@ -36,11 +38,13 @@ func TestPartitionStringFromEnd(t *testing.T) {
 
 func TestEscapeSimpleQuotedStringIfNeeded(t *testing.T) {
 	assert := func(str string, shouldBeDiff bool) {
+		t.Helper()
 		maybeEscaped := EscapeSimpleQuotedStringIfNeeded(str)
-		if shouldBeDiff {
-			require.NotEqual(t, str, maybeEscaped)
-		} else {
-			require.Equal(t, str, maybeEscaped)
+		if shouldBeDiff && maybeEscaped == str {
+			t.Errorf("EscapeSimpleQuotedStringIfNeeded(%q) = %q, want it to be escaped", str, maybeEscaped)
+		}
+		if !shouldBeDiff && maybeEscaped != str {
+			t.Errorf("EscapeSimpleQuotedStringIfNeeded(%q) = %q, want it unchanged", str, maybeEscaped)
 		}
 	}
 	assert("foo", false)
@@ -52,12 +56,17 @@ func TestEscapeSimpleQuotedStringIfNeeded(t *testing.T) {
 }
 
 func TestEscapeSimpleQuotedString(t *testing.T) {
-	require.Equal(t, "\"foo\"", EscapeSimpleQuotedString("foo"))
+	if got := EscapeSimpleQuotedString("foo"); got != "\"foo\"" {
+		t.Errorf("EscapeSimpleQuotedString(foo) = %q, want %q", got, "\"foo\"")
+	}
 }
 
 func TestEscapeSimpleQuotedStringContents(t *testing.T) {
 	assert := func(str string, expected string) {
-		require.Equal(t, expected, EscapeSimpleQuotedStringContents(str))
+		t.Helper()
+		if got := EscapeSimpleQuotedStringContents(str); got != expected {
+			t.Errorf("EscapeSimpleQuotedStringContents(%q) = %q, want %q", str, got, expected)
+		}
 	}
 	assert("foo", "foo")
 	assert("f\\oo", "f\\\\oo")
@@ -68,9 +77,12 @@ func TestEscapeSimpleQuotedStringContents(t *testing.T) {
 
 func TestUnescapeSimpleQuotedStringIfNeeded(t *testing.T) {
 	assert := func(str string, expectedStr string, expectedErr bool) {
+		t.Helper()
 		actualStr, actualErr := UnescapeSimpleQuotedStringIfNeeded(str)
-		require.Equal(t, expectedStr, actualStr)
-		require.Equal(t, expectedErr, actualErr != nil)
+		if actualStr != expectedStr || (actualErr != nil) != expectedErr {
+			t.Errorf("UnescapeSimpleQuotedStringIfNeeded(%q) = (%q, %v), want (%q, err=%v)",
+				str, actualStr, actualErr, expectedStr, expectedErr)
+		}
 	}
 	assert("foo", "foo", false)
 	assert("\"foo\"", "foo", false)
@@ -79,9 +91,12 @@ func TestUnescapeSimpleQuotedStringIfNeeded(t *testing.T) {
 
 func TestUnescapeSimpleQuotedString(t *testing.T) {
 	assert := func(str string, expectedStr string, expectedErr bool) {
+		t.Helper()
 		actualStr, actualErr := UnescapeSimpleQuotedString(str)
-		require.Equal(t, expectedStr, actualStr)
-		require.Equal(t, expectedErr, actualErr != nil)
+		if actualStr != expectedStr || (actualErr != nil) != expectedErr {
+			t.Errorf("UnescapeSimpleQuotedString(%q) = (%q, %v), want (%q, err=%v)",
+				str, actualStr, actualErr, expectedStr, expectedErr)
+		}
 	}
 	assert("foo", "", true)
 	assert("\"foo\"", "foo", false)
@@ -90,9 +105,12 @@ func TestUnescapeSimpleQuotedString(t *testing.T) {
 
 func TestUnescapeSimpleQuotedStringContents(t *testing.T) {
 	assert := func(str string, expectedStr string, expectedErr bool) {
+		t.Helper()
 		actualStr, actualErr := UnescapeSimpleQuotedStringContents(str)
-		require.Equal(t, expectedStr, actualStr)
-		require.Equal(t, expectedErr, actualErr != nil)
+		if actualStr != expectedStr || (actualErr != nil) != expectedErr {
+			t.Errorf("UnescapeSimpleQuotedStringContents(%q) = (%q, %v), want (%q, err=%v)",
+				str, actualStr, actualErr, expectedStr, expectedErr)
+		}
 	}
 	assert("foo", "foo", false)
 	assert("f\\\\oo", "f\\oo", false)

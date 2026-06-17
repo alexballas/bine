@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/alexballas/bine/tor"
-	"github.com/stretchr/testify/require"
 )
 
 var torEnabled bool
@@ -45,7 +44,7 @@ func GlobalEnabledNetworkContext(t *testing.T) *TestContext {
 		globalEnabledNetworkContext = ctx
 	} else {
 		globalEnabledNetworkContext.T = t
-		globalEnabledNetworkContext.Require = require.New(t)
+		globalEnabledNetworkContext.Require = newRequire(t)
 	}
 	return globalEnabledNetworkContext
 }
@@ -54,7 +53,7 @@ type TestContext struct {
 	context.Context
 	*testing.T
 	*tor.Tor
-	Require         *require.Assertions
+	Require         *requireAssertions
 	CloseTorOnClose bool
 }
 
@@ -73,7 +72,7 @@ func NewTestContext(t *testing.T, conf *tor.StartConf) *TestContext {
 	} else {
 		conf.ExtraArgs = append(conf.ExtraArgs, "--quiet")
 	}
-	ret := &TestContext{Context: context.Background(), T: t, Require: require.New(t), CloseTorOnClose: true}
+	ret := &TestContext{Context: context.Background(), T: t, Require: newRequire(t), CloseTorOnClose: true}
 	// Start tor
 	var err error
 	if ret.Tor, err = tor.Start(ret.Context, conf); err != nil {

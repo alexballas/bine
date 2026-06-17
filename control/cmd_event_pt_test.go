@@ -2,31 +2,55 @@ package control
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestParsePTLogEvent(t *testing.T) {
 	evt := ParsePTLogEvent(`PT=/usr/bin/obfs4proxy SEVERITY=warning MESSAGE="connection to bridge failed: timeout"`)
-	require.Equal(t, EventCodePTLog, evt.Code())
-	require.Equal(t, "/usr/bin/obfs4proxy", evt.PT)
-	require.Equal(t, "warning", evt.Severity)
-	require.Equal(t, "connection to bridge failed: timeout", evt.Message)
+	if evt.Code() != EventCodePTLog {
+		t.Errorf("Code() = %q, want %q", evt.Code(), EventCodePTLog)
+	}
+	if evt.PT != "/usr/bin/obfs4proxy" {
+		t.Errorf("PT = %q, want %q", evt.PT, "/usr/bin/obfs4proxy")
+	}
+	if evt.Severity != "warning" {
+		t.Errorf("Severity = %q, want %q", evt.Severity, "warning")
+	}
+	if evt.Message != "connection to bridge failed: timeout" {
+		t.Errorf("Message = %q, want %q", evt.Message, "connection to bridge failed: timeout")
+	}
 }
 
 func TestParsePTStatusEvent(t *testing.T) {
 	evt := ParsePTStatusEvent(`PT=/usr/bin/obfs4proxy TRANSPORT=obfs4 ADDRESS=1.2.3.4:443 CONNECT=SUCCESS`)
-	require.Equal(t, EventCodePTStatus, evt.Code())
-	require.Equal(t, "/usr/bin/obfs4proxy", evt.PT)
-	require.Equal(t, "obfs4", evt.Transport)
-	require.Equal(t, "1.2.3.4:443", evt.Values["ADDRESS"])
-	require.Equal(t, "SUCCESS", evt.Values["CONNECT"])
+	if evt.Code() != EventCodePTStatus {
+		t.Errorf("Code() = %q, want %q", evt.Code(), EventCodePTStatus)
+	}
+	if evt.PT != "/usr/bin/obfs4proxy" {
+		t.Errorf("PT = %q, want %q", evt.PT, "/usr/bin/obfs4proxy")
+	}
+	if evt.Transport != "obfs4" {
+		t.Errorf("Transport = %q, want %q", evt.Transport, "obfs4")
+	}
+	if evt.Values["ADDRESS"] != "1.2.3.4:443" {
+		t.Errorf("Values[ADDRESS] = %q, want %q", evt.Values["ADDRESS"], "1.2.3.4:443")
+	}
+	if evt.Values["CONNECT"] != "SUCCESS" {
+		t.Errorf("Values[CONNECT] = %q, want %q", evt.Values["CONNECT"], "SUCCESS")
+	}
 }
 
 func TestPTEventsRecognized(t *testing.T) {
-	require.Contains(t, recognizedEventCodesByCode, EventCodePTLog)
-	require.Contains(t, recognizedEventCodesByCode, EventCodePTStatus)
+	if _, ok := recognizedEventCodesByCode[EventCodePTLog]; !ok {
+		t.Errorf("recognizedEventCodesByCode missing %q", EventCodePTLog)
+	}
+	if _, ok := recognizedEventCodesByCode[EventCodePTStatus]; !ok {
+		t.Errorf("recognizedEventCodesByCode missing %q", EventCodePTStatus)
+	}
 	// ParseEvent dispatches to the typed parsers rather than UnrecognizedEvent.
-	require.IsType(t, &PTLogEvent{}, ParseEvent(EventCodePTLog, "PT=x MESSAGE=y", nil))
-	require.IsType(t, &PTStatusEvent{}, ParseEvent(EventCodePTStatus, "PT=x TRANSPORT=y", nil))
+	if _, ok := ParseEvent(EventCodePTLog, "PT=x MESSAGE=y", nil).(*PTLogEvent); !ok {
+		t.Errorf("ParseEvent(%q) did not return *PTLogEvent", EventCodePTLog)
+	}
+	if _, ok := ParseEvent(EventCodePTStatus, "PT=x TRANSPORT=y", nil).(*PTStatusEvent); !ok {
+		t.Errorf("ParseEvent(%q) did not return *PTStatusEvent", EventCodePTStatus)
+	}
 }
