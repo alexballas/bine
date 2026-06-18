@@ -120,6 +120,9 @@ func (t *Tor) Forward(ctx context.Context, conf *ForwardConf) (*OnionForward, er
 		req.Key = control.GenKey(control.KeyAlgoED25519V3)
 	case control.GenKey:
 		req.Key = key
+	case *control.ED25519Key:
+		fwd.Key = key.KeyPair
+		req.Key = key
 	case ed25519.KeyPair:
 		fwd.Key = key
 		req.Key = &control.ED25519Key{KeyPair: key}
@@ -127,9 +130,6 @@ func (t *Tor) Forward(ctx context.Context, conf *ForwardConf) (*OnionForward, er
 		properKey := ed25519.FromCryptoPrivateKey(key)
 		fwd.Key = properKey
 		req.Key = &control.ED25519Key{KeyPair: properKey}
-	case *control.ED25519Key:
-		fwd.Key = key.KeyPair
-		req.Key = key
 	default:
 		err = fmt.Errorf("Unrecognized key type: %T", key)
 	}

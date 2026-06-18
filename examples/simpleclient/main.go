@@ -22,7 +22,7 @@ func main() {
 func run() error {
 	// Start tor with default config (can set start conf's DebugWriter to os.Stdout for debug logs)
 	fmt.Println("Starting tor and fetching title of https://check.torproject.org, please wait a few seconds...")
-	t, err := tor.Start(nil, nil)
+	t, err := tor.Start(context.Background(), nil)
 	if err != nil {
 		return err
 	}

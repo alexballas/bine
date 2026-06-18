@@ -8,12 +8,12 @@ package ed25519
 
 import (
 	"crypto"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha512"
 	"errors"
 	"io"
 
-	"crypto/ed25519"
 	"github.com/alexballas/bine/torutil/ed25519/internal/edwards25519"
 )
 
@@ -124,6 +124,7 @@ func (p *precomputedKeyPair) Sign(rand io.Reader, message []byte, opts crypto.Si
 	}
 	return Sign(p, message), nil
 }
+
 func (p *precomputedKeyPair) Verify(message []byte, sig []byte) bool {
 	return p.PublicKeyBytes.Verify(message, sig)
 }

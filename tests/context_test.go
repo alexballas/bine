@@ -10,11 +10,13 @@ import (
 	"github.com/alexballas/bine/tor"
 )
 
-var torEnabled bool
-var torExePath string
-var torVerbose bool
-var torIncludeNetworkTests bool
-var globalEnabledNetworkContext *TestContext
+var (
+	torEnabled                  bool
+	torExePath                  string
+	torVerbose                  bool
+	torIncludeNetworkTests      bool
+	globalEnabledNetworkContext *TestContext
+)
 
 func TestMain(m *testing.M) {
 	flag.BoolVar(&torEnabled, "tor", false, "Whether any of the integration tests are enabled")

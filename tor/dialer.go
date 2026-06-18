@@ -86,9 +86,10 @@ func (t *Tor) Dialer(ctx context.Context, conf *DialConf) (*Dialer, error) {
 }
 
 // DialContext is the equivalent of net.DialContext.
-//
-// TODO: Remove when https://github.com/golang/go/issues/17759 is released.
 func (d *Dialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
+	if dialer, ok := d.Dialer.(proxy.ContextDialer); ok {
+		return dialer.DialContext(ctx, network, addr)
+	}
 	errCh := make(chan error, 1)
 	connCh := make(chan net.Conn, 1)
 	go func() {

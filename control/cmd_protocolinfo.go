@@ -56,15 +56,21 @@ func (c *Conn) sendProtocolInfo() (*ProtocolInfo, error) {
 				if !strings.HasPrefix(cookieFile, "COOKIEFILE=") {
 					continue
 				}
-				if ret.CookieFile, err = torutil.UnescapeSimpleQuotedString(cookieFile[11:]); err != nil {
+				cookieFile, err := torutil.UnescapeSimpleQuotedString(cookieFile[11:])
+				if err != nil {
 					continue
 				}
+				ret.CookieFile = cookieFile
 			}
 			ret.AuthMethods = strings.Split(methods[8:], ",")
 		case "VERSION":
 			torVersion, _, _ := torutil.PartitionString(val, ' ')
 			if strings.HasPrefix(torVersion, "Tor=") {
-				ret.TorVersion, err = torutil.UnescapeSimpleQuotedString(torVersion[4:])
+				torVersion, err := torutil.UnescapeSimpleQuotedString(torVersion[4:])
+				if err != nil {
+					continue
+				}
+				ret.TorVersion = torVersion
 			}
 		}
 	}

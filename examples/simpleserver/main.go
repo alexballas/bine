@@ -19,14 +19,16 @@ func main() {
 func run() error {
 	// Start tor with default config (can set start conf's DebugWriter to os.Stdout for debug logs)
 	fmt.Println("Starting and registering onion service, please wait a couple of minutes...")
-	t, err := tor.Start(nil, nil)
+	t, err := tor.Start(context.Background(), nil)
 	if err != nil {
 		return err
 	}
 	defer t.Close()
 	// Add a handler
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello, Dark World!"))
+		if _, err := w.Write([]byte("Hello, Dark World!")); err != nil {
+			log.Printf("failed writing response: %v", err)
+		}
 	})
 	// Wait at most a few minutes to publish the service
 	listenCtx, listenCancel := context.WithTimeout(context.Background(), 3*time.Minute)

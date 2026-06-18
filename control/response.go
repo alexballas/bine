@@ -95,9 +95,7 @@ func (c *Conn) ReadResponse() (*Response, error) {
 			// c.debugf("Read dot body:\n---\n%v\n---", dotBodyStr)
 			resp.Data = append(resp.Data, line[4:]+"\r\n"+dotBodyStr)
 			dotLines := strings.Split(dotBodyStr, "\n")
-			for _, dotLine := range dotLines[:len(dotLines)-1] {
-				resp.RawLines = append(resp.RawLines, dotLine)
-			}
+			resp.RawLines = append(resp.RawLines, dotLines[:len(dotLines)-1]...)
 			resp.RawLines = append(resp.RawLines, ".")
 		default:
 			return nil, c.protoErr("Invalid separator: '%v'", line[3])

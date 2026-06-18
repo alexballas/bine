@@ -301,12 +301,10 @@ func (c *Conn) relayAsyncEvents(resp *Response) {
 	if len(chans) == 0 {
 		return
 	}
-	// Parse the event and only send if known event
-	if event := ParseEvent(eventCode, data, dataArray); event != nil {
-		for _, ch := range chans {
-			// Just send, if closed or blocking, that's not our problem
-			ch <- event
-		}
+	event := ParseEvent(eventCode, data, dataArray)
+	for _, ch := range chans {
+		// Just send, if closed or blocking, that's not our problem
+		ch <- event
 	}
 }
 
@@ -568,7 +566,7 @@ func ParseBandwidthEvent(raw string) *BandwidthEvent {
 	var temp string
 	temp, raw, _ = torutil.PartitionString(raw, ' ')
 	event.BytesRead, _ = strconv.ParseInt(temp, 10, 64)
-	temp, raw, _ = torutil.PartitionString(raw, ' ')
+	temp, _, _ = torutil.PartitionString(raw, ' ')
 	event.BytesWritten, _ = strconv.ParseInt(temp, 10, 64)
 	return event
 }
@@ -697,7 +695,7 @@ func ParseGuardEvent(raw string) *GuardEvent {
 	event := &GuardEvent{Raw: raw}
 	event.Type, raw, _ = torutil.PartitionString(raw, ' ')
 	event.Name, raw, _ = torutil.PartitionString(raw, ' ')
-	event.Status, raw, _ = torutil.PartitionString(raw, ' ')
+	event.Status, _, _ = torutil.PartitionString(raw, ' ')
 	return event
 }
 
@@ -733,7 +731,7 @@ func ParseStreamBandwidthEvent(raw string) *StreamBandwidthEvent {
 	event.BytesRead, _ = strconv.ParseInt(temp, 10, 64)
 	temp, raw, _ = torutil.PartitionString(raw, ' ')
 	event.BytesWritten, _ = strconv.ParseInt(temp, 10, 64)
-	temp, raw, _ = torutil.PartitionString(raw, ' ')
+	temp, _, _ = torutil.PartitionString(raw, ' ')
 	temp, _ = torutil.UnescapeSimpleQuotedString(temp)
 	event.Time = parseISOTime2Frac(temp)
 	return event
@@ -814,7 +812,7 @@ type BuildTimeoutSetEvent struct {
 func ParseBuildTimeoutSetEvent(raw string) *BuildTimeoutSetEvent {
 	event := &BuildTimeoutSetEvent{Raw: raw}
 	var ok bool
-	event.Type, raw, ok = torutil.PartitionString(raw, ' ')
+	event.Type, raw, _ = torutil.PartitionString(raw, ' ')
 	_, raw, ok = torutil.PartitionString(raw, ' ')
 	var attr string
 	parseFloat := func(val string) float32 {
@@ -868,13 +866,28 @@ func (*SignalEvent) Code() EventCode { return EventCodeSignal }
 
 // ConfChangedEvent is CONF_CHANGED in spec.
 type ConfChangedEvent struct {
-	Raw []string
+	Raw     []string
+	Changes []*KeyVal
 }
 
 // ParseConfChangedEvent parses the event.
 func ParseConfChangedEvent(raw []string) *ConfChangedEvent {
-	// TODO: break into KeyVal and unescape strings
-	return &ConfChangedEvent{Raw: raw}
+	event := &ConfChangedEvent{Raw: raw, Changes: make([]*KeyVal, 0, len(raw))}
+	for _, line := range raw {
+		key, val, ok := torutil.PartitionString(line, '=')
+		change := &KeyVal{Key: key}
+		if ok {
+			change.Val = val
+			if unescaped, err := torutil.UnescapeSimpleQuotedStringIfNeeded(val); err == nil {
+				change.Val = unescaped
+			}
+			if change.Val == "" {
+				change.ValSetAndEmpty = true
+			}
+		}
+		event.Changes = append(event.Changes, change)
+	}
+	return event
 }
 
 // Code implements Event.Code
@@ -950,7 +963,7 @@ func ParseTransportLaunchedEvent(raw string) *TransportLaunchedEvent {
 	event.Name, raw, _ = torutil.PartitionString(raw, ' ')
 	event.Address, raw, _ = torutil.PartitionString(raw, ' ')
 	var temp string
-	temp, raw, _ = torutil.PartitionString(raw, ' ')
+	temp, _, _ = torutil.PartitionString(raw, ' ')
 	event.Port, _ = strconv.Atoi(temp)
 	return event
 }
@@ -1145,7 +1158,7 @@ func ParseCellStatsEvent(raw string) *CellStatsEvent {
 		case "InboundRemoved":
 			event.InboundRemoved = toIntMap(val)
 		case "InboundTime":
-			event.OutboundTime = toIntMap(val)
+			event.InboundTime = toIntMap(val)
 		case "OutboundQueue":
 			event.OutboundQueueID = val
 		case "OutboundConn":

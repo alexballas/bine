@@ -74,6 +74,9 @@ func run() error {
 
 	log.Printf("Doing client-side streaming RPC")
 	rStream, err := client.ReceiveStrings(ctx)
+	if err != nil {
+		return err
+	}
 	strs := []string{"foo", "bar", "baz"}
 	for _, str := range strs {
 		if err := rStream.Send(&pb.ReceiveStringsRequest{String_: str}); err != nil {
@@ -88,6 +91,9 @@ func run() error {
 
 	log.Printf("Doing bi-directional streaming RPC")
 	eStream, err := client.ExchangeStrings(ctx)
+	if err != nil {
+		return err
+	}
 	for _, str := range strs {
 		if err := eStream.Send(&pb.ExchangeStringsRequest{String_: str, WantReturn: str == "baz"}); err != nil {
 			return err
@@ -153,7 +159,8 @@ func startClient(
 	}
 	// Make the connection. The passthrough scheme hands the address straight to
 	// our Tor dialer instead of routing it through gRPC's DNS resolver.
-	conn, err = grpc.NewClient("passthrough:///"+addr,
+	conn, err = grpc.NewClient(
+		"passthrough:///"+addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 			return dialer.DialContext(ctx, "tcp", addr)

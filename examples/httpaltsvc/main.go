@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -118,8 +117,7 @@ func start(ctx context.Context, domain string, httpAddr string) (srv *server, er
 	}(srv.httpSrvErrCh)
 	go func(errCh chan error) {
 		errCh <- http.ServeTLS(srv.onion2,
-			srv.NewHandler(srv.onion2.ID+".onion", "", "http://"+srv.onion1.ID+".onion", "https://"+domain,
-				"http://"+domain), cert, key)
+			srv.NewHandler(srv.onion2.ID+".onion", ""), cert, key)
 	}(srv.httpSrvErrCh)
 	// Start HTTP server
 	srv.httpSrv = &http.Server{Addr: httpAddr, Handler: srv.NewHandler(httpAddr, srv.onion2.ID+".onion:443")}
@@ -129,25 +127,10 @@ func start(ctx context.Context, domain string, httpAddr string) (srv *server, er
 
 func (s *server) Err() <-chan error { return s.httpSrvErrCh }
 
-func (s *server) NewHandler(siteAddr string, altSvc string, origins ...string) http.Handler {
+func (s *server) NewHandler(siteAddr string, altSvc string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: re-enable if necessary
-		// if r.URL.Path == "/.well-known/http-opportunistic" {
-		// 	s.handleOpportunistic(siteAddr, origins, w, r)
-		// } else {
 		s.handleRegularRequest(siteAddr, altSvc, w, r)
-		// }
 	})
-}
-
-func (s *server) handleOpportunistic(siteAddr string, origins []string, w http.ResponseWriter, r *http.Request) {
-	if verbose {
-		fmt.Printf("-------\nAccessed %v, responding with origins %v, site info:\n%v-------\n",
-			siteAddr, origins, string(s.requestInfo(siteAddr, r)))
-	}
-	w.Header().Add("Content-Type", "application/json")
-	byts, _ := json.Marshal(origins)
-	w.Write(byts)
 }
 
 func (s *server) handleRegularRequest(siteAddr string, altSvc string, w http.ResponseWriter, r *http.Request) {
@@ -160,7 +143,9 @@ func (s *server) handleRegularRequest(siteAddr string, altSvc string, w http.Res
 	if verbose {
 		fmt.Printf("-------\nAccessed  %v, responding with:\n%v-------\n", siteAddr, string(resp))
 	}
-	w.Write(resp)
+	if _, err := w.Write(resp); err != nil && verbose {
+		fmt.Printf("Failed writing response for %v: %v\n", siteAddr, err)
+	}
 }
 
 func (s *server) requestInfo(siteAddr string, r *http.Request) []byte {
@@ -181,9 +166,6 @@ func (s *server) requestInfo(siteAddr string, r *http.Request) []byte {
 		for _, val := range vals {
 			fmt.Fprintf(buf, "  %v: %v\n", h, val)
 		}
-	}
-	if verbose {
-		fmt.Printf("-------\nAccessed  %v, responding with:\n%v-------\n", siteAddr, string(buf.Bytes()))
 	}
 	return buf.Bytes()
 }
