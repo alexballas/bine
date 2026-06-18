@@ -80,6 +80,26 @@ In non-Windows environments, the `UseEmbeddedControlConn` field in `StartConf` c
 socket that does not open a control port. With Tor statically linked the binary does not have to be distributed
 separately. Of course take notice of all licenses in accompanying projects.
 
+## Forwarding to existing services
+
+`Listen` is best when you want Tor to back a single Go `net.Listener`. When you already run local services and want to
+map several onion (virtual) ports to different local addresses, use `Forward` instead. The `PortForwards` map keys are
+local addresses and the values are the remote onion ports they serve, so the following exposes onion port `80` from a
+service on `127.0.0.1:5000` and onion port `90` from a service on `127.0.0.1:5001`:
+
+```go
+fwd, err := t.Forward(ctx, &tor.ForwardConf{
+	PortForwards: map[string][]int{
+		"127.0.0.1:5000": {80},
+		"127.0.0.1:5001": {90},
+	},
+})
+```
+
+By default the onion service is deleted (`DEL_ONION`) when `OnionService.Close`/`OnionForward.Close` is called. Set
+`Detach: true` together with `NoDeleteOnClose: true` on the `ListenConf`/`ForwardConf` to keep the service published
+after the controller connection closes.
+
 ## Testing
 
 To test, a simple `go test ./...` from the base of the repository will work (add in a `-v` in there to see the tests).

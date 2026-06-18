@@ -34,6 +34,12 @@ type OnionService struct {
 	// to false of an existing LocalListener was provided to Listen.
 	CloseLocalListenerOnClose bool
 
+	// DeleteOnionOnClose, if true, sends DEL_ONION to Tor on Close to remove the
+	// onion service. It is true by default and set to false when Listen is given
+	// ListenConf.NoDeleteOnClose. Disabling it is useful with Detach so the
+	// service survives after this controller connection closes.
+	DeleteOnionOnClose bool
+
 	// The Tor object that created this. Needed for Close.
 	Tor *Tor
 }
@@ -90,6 +96,11 @@ type ListenConf struct {
 	// false, the network will be enabled if it's not and then we will wait
 	// until the onion service is published.
 	NoWait bool
+
+	// NoDeleteOnClose, if true, prevents OnionService.Close from sending
+	// DEL_ONION to Tor. This is useful alongside Detach when the onion service
+	// should outlive this controller connection.
+	NoDeleteOnClose bool
 }
 
 // Listen creates an onion service and local listener. The context can be nil.
@@ -100,7 +111,11 @@ func (t *Tor) Listen(ctx context.Context, conf *ListenConf) (*OnionService, erro
 		ctx = context.Background()
 	}
 	// Create the service up here and make sure we close it no matter the error within
-	svc := &OnionService{Tor: t, CloseLocalListenerOnClose: conf.LocalListener == nil}
+	svc := &OnionService{
+		Tor:                       t,
+		CloseLocalListenerOnClose: conf.LocalListener == nil,
+		DeleteOnionOnClose:        !conf.NoDeleteOnClose,
+	}
 	var err error
 
 	// Create the local listener if necessary
@@ -176,6 +191,20 @@ func (t *Tor) Listen(ctx context.Context, conf *ListenConf) (*OnionService, erro
 		}
 	}
 
+	// If we will wait for publication, subscribe to HS descriptor events before
+	// creating the onion. Otherwise an UPLOADED event could fire before we
+	// subscribe and we would block forever (cretz/bine#39). The channel is
+	// buffered generously so events relayed while the network is being enabled
+	// are not lost before we start draining.
+	var hsDescCh chan control.Event
+	if err == nil && !conf.NoWait {
+		hsDescCh = make(chan control.Event, 32)
+		defer close(hsDescCh)
+		if err = t.Control.AddEventListener(hsDescCh, control.EventCodeHSDesc); err == nil {
+			defer t.Control.RemoveEventListener(hsDescCh, control.EventCodeHSDesc)
+		}
+	}
+
 	// Create the onion service
 	var resp *control.AddOnionResponse
 	if err == nil {
@@ -207,25 +236,25 @@ func (t *Tor) Listen(ctx context.Context, conf *ListenConf) (*OnionService, erro
 			// the service IDs for UPLOADED so we don't keep a map.
 			uploadsAttempted := 0
 			failures := []string{}
-			_, err = t.Control.EventWait(ctx, []control.EventCode{control.EventCodeHSDesc},
-				func(evt control.Event) (bool, error) {
-					hs, _ := evt.(*control.HSDescEvent)
-					if hs != nil && hs.Address == svc.ID {
-						switch hs.Action {
-						case "UPLOAD":
-							uploadsAttempted++
-						case "FAILED":
-							failures = append(failures,
-								fmt.Sprintf("Failed uploading to dir %v - reason: %v", hs.HSDir, hs.Reason))
-							if len(failures) == uploadsAttempted {
-								return false, fmt.Errorf("Failed all uploads, reasons: %v", failures)
-							}
-						case "UPLOADED":
-							return true, nil
-						}
-					}
+			err = t.waitForEvent(ctx, hsDescCh, func(evt control.Event) (bool, error) {
+				hs, _ := evt.(*control.HSDescEvent)
+				if hs == nil || hs.Address != svc.ID {
 					return false, nil
-				})
+				}
+				switch hs.Action {
+				case "UPLOAD":
+					uploadsAttempted++
+				case "FAILED":
+					failures = append(failures,
+						fmt.Sprintf("Failed uploading to dir %v - reason: %v", hs.HSDir, hs.Reason))
+					if len(failures) == uploadsAttempted {
+						return false, fmt.Errorf("Failed all uploads, reasons: %v", failures)
+					}
+				case "UPLOADED":
+					return true, nil
+				}
+				return false, nil
+			})
 		}
 	}
 
@@ -263,11 +292,14 @@ func (o *OnionService) String() string {
 // the LocalListener if CloseLocalListenerOnClose is true.
 func (o *OnionService) Close() (err error) {
 	o.Tor.Debugf("Closing onion %v", o)
-	// Delete the onion first
-	if o.ID != "" {
+	// Delete the onion first. Guard against a nil control connection, which can
+	// happen if Tor was closed while the service was still being set up
+	// (cretz/bine#57). Skipping the deletion is safe because closing Tor already
+	// tears the onion down.
+	if o.ID != "" && o.DeleteOnionOnClose && o.Tor.Control != nil {
 		err = o.Tor.Control.DelOnion(o.ID)
-		o.ID = ""
 	}
+	o.ID = ""
 	// Now if the local one needs to be closed, do it
 	if o.CloseLocalListenerOnClose && o.LocalListener != nil {
 		if closeErr := o.LocalListener.Close(); closeErr != nil {

@@ -25,6 +25,11 @@ type OnionForward struct {
 	// service.
 	PortForwards map[string][]int
 
+	// DeleteOnionOnClose, if true, sends DEL_ONION to Tor on Close to remove the
+	// onion service. It is true by default and set to false when Forward is given
+	// ForwardConf.NoDeleteOnClose.
+	DeleteOnionOnClose bool
+
 	// The Tor object that created this. Needed for Close.
 	Tor *Tor
 }
@@ -72,6 +77,11 @@ type ForwardConf struct {
 	// false, the network will be enabled if it's not and then we will wait
 	// until the onion service is published.
 	NoWait bool
+
+	// NoDeleteOnClose, if true, prevents OnionForward.Close from sending
+	// DEL_ONION to Tor. This is useful alongside Detach when the onion service
+	// should outlive this controller connection.
+	NoDeleteOnClose bool
 }
 
 // Forward creates an onion service which forwards to local ports. The context
@@ -81,7 +91,7 @@ func (t *Tor) Forward(ctx context.Context, conf *ForwardConf) (*OnionForward, er
 		ctx = context.Background()
 	}
 	// Create the forward up here and make sure we close it no matter the error within
-	fwd := &OnionForward{Tor: t}
+	fwd := &OnionForward{Tor: t, DeleteOnionOnClose: !conf.NoDeleteOnClose}
 	var err error
 
 	// Henceforth, any error requires we close the svc
@@ -138,6 +148,20 @@ func (t *Tor) Forward(ctx context.Context, conf *ForwardConf) (*OnionForward, er
 		}
 	}
 
+	// If we will wait for publication, subscribe to HS descriptor events before
+	// creating the onion. Otherwise an UPLOADED event could fire before we
+	// subscribe and we would block forever (cretz/bine#39). The channel is
+	// buffered generously so events relayed while the network is being enabled
+	// are not lost before we start draining.
+	var hsDescCh chan control.Event
+	if err == nil && !conf.NoWait {
+		hsDescCh = make(chan control.Event, 32)
+		defer close(hsDescCh)
+		if err = t.Control.AddEventListener(hsDescCh, control.EventCodeHSDesc); err == nil {
+			defer t.Control.RemoveEventListener(hsDescCh, control.EventCodeHSDesc)
+		}
+	}
+
 	// Create the onion service
 	var resp *control.AddOnionResponse
 	if err == nil {
@@ -169,25 +193,25 @@ func (t *Tor) Forward(ctx context.Context, conf *ForwardConf) (*OnionForward, er
 			// the service IDs for UPLOADED so we don't keep a map.
 			uploadsAttempted := 0
 			failures := []string{}
-			_, err = t.Control.EventWait(ctx, []control.EventCode{control.EventCodeHSDesc},
-				func(evt control.Event) (bool, error) {
-					hs, _ := evt.(*control.HSDescEvent)
-					if hs != nil && hs.Address == fwd.ID {
-						switch hs.Action {
-						case "UPLOAD":
-							uploadsAttempted++
-						case "FAILED":
-							failures = append(failures,
-								fmt.Sprintf("Failed uploading to dir %v - reason: %v", hs.HSDir, hs.Reason))
-							if len(failures) == uploadsAttempted {
-								return false, fmt.Errorf("Failed all uploads, reasons: %v", failures)
-							}
-						case "UPLOADED":
-							return true, nil
-						}
-					}
+			err = t.waitForEvent(ctx, hsDescCh, func(evt control.Event) (bool, error) {
+				hs, _ := evt.(*control.HSDescEvent)
+				if hs == nil || hs.Address != fwd.ID {
 					return false, nil
-				})
+				}
+				switch hs.Action {
+				case "UPLOAD":
+					uploadsAttempted++
+				case "FAILED":
+					failures = append(failures,
+						fmt.Sprintf("Failed uploading to dir %v - reason: %v", hs.HSDir, hs.Reason))
+					if len(failures) == uploadsAttempted {
+						return false, fmt.Errorf("Failed all uploads, reasons: %v", failures)
+					}
+				case "UPLOADED":
+					return true, nil
+				}
+				return false, nil
+			})
 		}
 	}
 
@@ -209,11 +233,14 @@ func (o *OnionForward) String() string {
 // Close deletes the onion service.
 func (o *OnionForward) Close() (err error) {
 	o.Tor.Debugf("Closing onion %v", o)
-	// Delete the onion first
-	if o.ID != "" {
+	// Delete the onion first. Guard against a nil control connection, which can
+	// happen if Tor was closed while the forward was still being set up
+	// (cretz/bine#57). Skipping the deletion is safe because closing Tor already
+	// tears the onion down.
+	if o.ID != "" && o.DeleteOnionOnClose && o.Tor.Control != nil {
 		err = o.Tor.Control.DelOnion(o.ID)
-		o.ID = ""
 	}
+	o.ID = ""
 	if err != nil {
 		o.Tor.Debugf("Failed closing onion: %v", err)
 	}

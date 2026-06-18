@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/alexballas/bine/control"
@@ -356,39 +357,125 @@ func (t *Tor) connectController(ctx context.Context, conf *StartConf) error {
 }
 
 // EnableNetwork sets DisableNetwork to 0 and optionally waits for bootstrap to
-// complete. The context can be nil. If DisableNetwork isnt 1, this does
-// nothing.
+// complete. The context can be nil. If the network is already enabled and wait
+// is false, this does nothing; if wait is true it still waits for
+// bootstrapping to complete.
 func (t *Tor) EnableNetwork(ctx context.Context, wait bool) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	// Only enable if DisableNetwork is 1
-	if vals, err := t.Control.GetConf("DisableNetwork"); err != nil {
+	// Determine the current DisableNetwork state.
+	vals, err := t.Control.GetConf("DisableNetwork")
+	if err != nil {
 		return err
-	} else if len(vals) == 0 || vals[0].Key != "DisableNetwork" || vals[0].Val != "1" {
+	}
+	networkDisabled := len(vals) > 0 && vals[0].Key == "DisableNetwork" && vals[0].Val == "1"
+
+	// If the network is already enabled and the caller does not want to wait,
+	// there is nothing to do.
+	if !networkDisabled && !wait {
 		return nil
 	}
-	// Enable the network
-	if err := t.Control.SetConf(control.KeyVals("DisableNetwork", "0")...); err != nil {
-		return nil
+
+	// When waiting, subscribe to client-status events *before* enabling the
+	// network. Tor only delivers events once SETEVENTS has been issued, so if
+	// we enabled the network first the bootstrap-completed event could fire
+	// before we subscribe, leaving us blocked forever (cretz/bine#39, #40).
+	var eventCh chan control.Event
+	if wait {
+		eventCh = make(chan control.Event, 10)
+		defer close(eventCh)
+		if err := t.Control.AddEventListener(eventCh, control.EventCodeStatusClient); err != nil {
+			return err
+		}
+		defer t.Control.RemoveEventListener(eventCh, control.EventCodeStatusClient)
 	}
-	// If not waiting, leave
+
+	// Enable the network if it is currently disabled.
+	if networkDisabled {
+		if err := t.Control.SetConf(control.KeyVals("DisableNetwork", "0")...); err != nil {
+			return err
+		}
+	}
+
+	// If not waiting, we're done.
 	if !wait {
 		return nil
 	}
-	// Wait for progress to hit 100
-	_, err := t.Control.EventWait(ctx, []control.EventCode{control.EventCodeStatusClient},
-		func(evt control.Event) (bool, error) {
-			if status, _ := evt.(*control.StatusEvent); status != nil && status.Action == "BOOTSTRAP" {
-				if status.Severity == "NOTICE" && status.Arguments["PROGRESS"] == "100" {
-					return true, nil
-				} else if status.Severity == "ERR" {
-					return false, fmt.Errorf("Failing bootstrapping, Tor warning: %v", status.Arguments["WARNING"])
-				}
-			}
+
+	// The network may already be bootstrapped (e.g. it was enabled before this
+	// call). In that case no further bootstrap event is coming, so check the
+	// current phase explicitly rather than block forever (cretz/bine#38).
+	if done, err := t.bootstrapped(); err != nil {
+		return err
+	} else if done {
+		return nil
+	}
+
+	// Wait for bootstrapping to reach 100%.
+	return t.waitForEvent(ctx, eventCh, func(evt control.Event) (bool, error) {
+		status, _ := evt.(*control.StatusEvent)
+		if status == nil || status.Action != "BOOTSTRAP" {
 			return false, nil
-		})
-	return err
+		}
+		if status.Severity == "NOTICE" && status.Arguments["PROGRESS"] == "100" {
+			return true, nil
+		}
+		if status.Severity == "ERR" {
+			return false, fmt.Errorf("Failing bootstrapping, Tor warning: %v", status.Arguments["WARNING"])
+		}
+		return false, nil
+	})
+}
+
+// DisableNetwork sets DisableNetwork to 1, disconnecting Tor from the wider Tor
+// network without stopping the process. It is the inverse of EnableNetwork.
+func (t *Tor) DisableNetwork() error {
+	return t.Control.SetConf(control.KeyVals("DisableNetwork", "1")...)
+}
+
+// bootstrapped reports whether Tor has finished bootstrapping by inspecting the
+// current status/bootstrap-phase. This is used to avoid waiting on a
+// bootstrap-completed event that has already fired.
+func (t *Tor) bootstrapped() (bool, error) {
+	vals, err := t.Control.GetInfo("status/bootstrap-phase")
+	if err != nil {
+		return false, err
+	}
+	for _, val := range vals {
+		if val.Key == "status/bootstrap-phase" && strings.Contains(val.Val, "TAG=done") {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// waitForEvent pumps async events and returns once predicate returns true for
+// an event, or when ctx is done or an error occurs. The caller must have
+// already subscribed eventCh via Control.AddEventListener before triggering
+// whatever produces the events, so that no event is missed (cretz/bine#39,
+// #40).
+func (t *Tor) waitForEvent(
+	ctx context.Context, eventCh <-chan control.Event, predicate func(control.Event) (bool, error),
+) error {
+	eventCtx, eventCancel := context.WithCancel(ctx)
+	defer eventCancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- t.Control.HandleEvents(eventCtx) }()
+	for {
+		select {
+		case <-eventCtx.Done():
+			return eventCtx.Err()
+		case err := <-errCh:
+			return err
+		case evt := <-eventCh:
+			if ok, err := predicate(evt); err != nil {
+				return err
+			} else if ok {
+				return nil
+			}
+		}
+	}
 }
 
 // Close sends a halt to the Tor process if it can, closes the controller
