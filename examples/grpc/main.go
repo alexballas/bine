@@ -12,6 +12,7 @@ import (
 
 	"github.com/alexballas/bine/examples/grpc/pb"
 	"github.com/alexballas/bine/tor"
+	"github.com/alexballas/go-libtor"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -27,7 +28,7 @@ func run() error {
 	// We'll give it 5 minutes to run the whole thing (way too much of course, usually about 20 seconds)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	t, err := tor.Start(ctx, nil)
+	t, err := tor.Start(ctx, &tor.StartConf{ProcessCreator: libtor.Creator})
 	if err != nil {
 		return err
 	}

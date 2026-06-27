@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alexballas/bine/tor"
+	"github.com/alexballas/go-libtor"
 )
 
 func main() {
@@ -17,9 +18,9 @@ func main() {
 }
 
 func run() error {
-	// Start tor with default config (can set start conf's DebugWriter to os.Stdout for debug logs)
+	// Start Tor with go-libtor's embedded process creator.
 	fmt.Println("Starting and registering onion service, please wait a couple of minutes...")
-	t, err := tor.Start(context.Background(), nil)
+	t, err := tor.Start(context.Background(), &tor.StartConf{ProcessCreator: libtor.Creator})
 	if err != nil {
 		return err
 	}

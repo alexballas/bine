@@ -15,6 +15,7 @@ import (
 
 	"github.com/alexballas/bine/tor"
 	"github.com/alexballas/bine/torutil"
+	"github.com/alexballas/go-libtor"
 )
 
 var verbose bool
@@ -76,7 +77,7 @@ func start(ctx context.Context, domain string, httpAddr string) (srv *server, er
 		return nil, err
 	}
 	// Start tor
-	startConf := &tor.StartConf{DataDir: "tor-data"}
+	startConf := &tor.StartConf{DataDir: "tor-data", ProcessCreator: libtor.Creator}
 	if verbose {
 		startConf.DebugWriter = os.Stdout
 	} else {

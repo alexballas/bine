@@ -19,8 +19,9 @@ MIT licensed. The Tor docs/specs and https://github.com/yawning/bulb were great 
 
 ## Example
 
-It is really easy to create an onion service. For example, assuming `tor` is on the `PATH`, this bit of code will show
-a directory server of the current directory:
+It is really easy to create an onion service. For example, using
+[go-libtor](https://github.com/alexballas/go-libtor) to embed Tor directly in the binary, this bit of code will show a
+directory server of the current directory:
 
 ```go
 package main
@@ -33,12 +34,13 @@ import (
 	"time"
 
 	"github.com/alexballas/bine/tor"
+	"github.com/alexballas/go-libtor"
 )
 
 func main() {
-	// Start tor with default config (can set start conf's DebugWriter to os.Stdout for debug logs)
+	// Start Tor with go-libtor's embedded process creator.
 	fmt.Println("Starting and registering onion service, please wait a couple of minutes...")
-	t, err := tor.Start(nil, nil)
+	t, err := tor.Start(nil, &tor.StartConf{ProcessCreator: libtor.Creator})
 	if err != nil {
 		log.Panicf("Unable to start Tor: %v", err)
 	}
@@ -68,13 +70,9 @@ func main() {
 }
 ```
 
-If in `main.go` it can simply be run with `go run main.go`. Of course this uses a separate `tor` process. To embed Tor
-statically in the binary, use [go-libtor](https://github.com/alexballas/go-libtor), which bundles Tor and its C
-dependencies and exposes a `ProcessCreator`. Import `github.com/alexballas/go-libtor` and change the start line above to:
-
-```go
-t, err := tor.Start(nil, &tor.StartConf{ProcessCreator: libtor.Creator})
-```
+If in `main.go` it can simply be run with `go run main.go`. The example uses
+[go-libtor](https://github.com/alexballas/go-libtor), which bundles Tor and its C dependencies and exposes a
+`ProcessCreator`.
 
 In non-Windows environments, the `UseEmbeddedControlConn` field in `StartConf` can be set to `true` to use an embedded
 socket that does not open a control port. With Tor statically linked the binary does not have to be distributed

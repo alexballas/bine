@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alexballas/bine/tor"
+	"github.com/alexballas/go-libtor"
 	"golang.org/x/net/html"
 )
 
@@ -20,9 +21,9 @@ func main() {
 }
 
 func run() error {
-	// Start tor with default config (can set start conf's DebugWriter to os.Stdout for debug logs)
+	// Start Tor with go-libtor's embedded process creator.
 	fmt.Println("Starting tor and fetching title of https://check.torproject.org, please wait a few seconds...")
-	t, err := tor.Start(context.Background(), nil)
+	t, err := tor.Start(context.Background(), &tor.StartConf{ProcessCreator: libtor.Creator})
 	if err != nil {
 		return err
 	}
